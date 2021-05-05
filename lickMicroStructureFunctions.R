@@ -137,6 +137,15 @@ getILI <- function(ms){
 	return(ILI)
 }
 
+# getBurst
+# ILI: interlick interval
+# windowSize: the milliseconds passed in which you consider
+# a lick as pertaining to a given burst
+getBursts <- function(ILI, windowsSize){
+	clusters <- c(0, cumsum(abs(diff(ILI <= windowsSize))))
+	return(clusters * (ILI <= windowsSize))
+}
+
 # nLicksInTimeOut
 # @isLick: a vector of 0 and 1 indicating if a lick was detected or not
 # @isTimeout: a vector of 0 and 1 indicating if it was time out or not
