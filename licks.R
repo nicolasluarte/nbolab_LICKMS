@@ -102,17 +102,17 @@ tibbleList <- tibbleList %>%
         map(function(x) {
                 x %>%
                         group_by(arduinoNumber, spoutNumber, isLick, burstClusters) %>%
-			mutate(
-			       burstCount = n()
-			       ) %>%
+                        mutate(
+                                burstCount = n()
+                        ) %>%
                         ungroup()
         })
 tibbleList <- tibbleList %>%
         map(function(x) {
                 x %>%
-			mutate(
-			       clusterMS = binsMs(ms, 600000)$msBins
-			       )
+                        mutate(
+                                clusterMS = binsMs(ms, 600000)$msBins
+                        )
         })
 
 
@@ -134,7 +134,7 @@ plotData %>%
 plotData %>%
         ggplot(aes(burstCount, fill = as.factor(clusterMS))) +
         geom_density(alpha = 0.5) +
-	facet_wrap(~as.factor(clusterMS))
+        facet_wrap(~ as.factor(clusterMS))
 
 ##################################################################
 ##                          Statistics                          ##
