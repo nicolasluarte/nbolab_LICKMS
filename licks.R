@@ -11,7 +11,7 @@ library(zoo)
 ##                           IMPORT FUNCTIONS                           ##
 ##########################################################################
 
-source("functions.R")
+source("lickMicroStructureFunctions.R")
 
 ##########################################################################
 ##                    LOAD FILES INTO DATAFRAME LIST                    ##
@@ -135,6 +135,71 @@ plotData %>%
         ggplot(aes(burstCount, fill = as.factor(clusterMS))) +
         geom_density(alpha = 0.5) +
         facet_wrap(~ as.factor(clusterMS))
+
+rolling <- plotData %>%
+	group_by(date, animalCode) %>%
+	summarise(rewards = max(eventsCum)) %>%
+	group_by(animalCode) %>%
+	mutate(rollMeans = rollmean(rewards, 3, fill = NA)) %>%
+	mutate(SD = rollapply(rewards, 3, sd, fill = NA))
+rolling %>%
+	ggplot(aes(as.factor(date), rollMeans, group = 1)) +
+	geom_point() +
+	geom_line() +
+	geom_errorbar(aes(ymin = rollMeans - SD, ymax = rollMeans + SD)) +
+	facet_wrap(~as.factor(animalCode)) +
+	ggtitle("Rolling average(3) + rolling SD")
+
+rolling <- plotData %>%
+	group_by(date) %>%
+	summarise(rewards = max(eventsCum)) %>%
+	mutate(rollMeans = rollmean(rewards, 3, fill = NA)) %>%
+	mutate(SD = rollapply(rewards, 3, sd, fill = NA))
+rolling %>%
+	ggplot(aes(as.factor(date), rollMeans, group = 1)) +
+	geom_point() +
+	geom_line() +
+	geom_errorbar(aes(ymin = rollMeans - SD, ymax = rollMeans + SD)) +
+	ggtitle("Rolling average(3) + rolling SD, total")
+
+a <- plotData %>%
+	group_by(animalCode) %>%
+	summarise(MEAN = mean(eventsCum),
+		  SD = sd(eventsCum)) %>%
+	ggplot(aes(as.factor(animalCode), MEAN)) +
+	geom_point() +
+	geom_errorbar(aes(ymin = MEAN - SD, ymax = MEAN + SD)) +
+	ggtitle("Mean events")
+b <- plotData %>%
+	group_by(animalCode) %>%
+	summarise(MEAN = mean(licksCum),
+		  SD = sd(licksCum)) %>%
+	ggplot(aes(as.factor(animalCode), MEAN)) +
+	geom_point() +
+	geom_errorbar(aes(ymin = MEAN - SD, ymax = MEAN + SD)) +
+	ggtitle("Mean licks")
+
+plotData %>%
+	group_by(animalCode, spoutNumber) %>%
+	summarise(MEAN = mean(licksCum),
+		  SD = sd(licksCum)
+		  ) %>%
+	ggplot(aes(as.factor(animalCode), MEAN)) +
+	geom_point() +
+	geom_errorbar(aes(ymin = MEAN - SD, ymax = MEAN + SD)) +
+	facet_wrap(~spoutNumber) +
+	ggtitle("Mean licks")
+
+plots <- list(a, b)
+pdf("plots.pdf")
+plots
+dev.off()
+
+plotData %>%
+	group_by(fileName, animalCode) %>%
+	summarise(maxEvents = max(eventsCum),
+		  maxLicks = max(licksCum)) %>%
+	View()
 
 ##################################################################
 ##                          Statistics                          ##
