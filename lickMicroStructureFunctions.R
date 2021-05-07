@@ -171,13 +171,12 @@ nEvents <- function(eventsCum){
 }
 
 # compareReturn
-# @x1: the first column of the original dataframe which you want to search
-# in the lookup table
-# @x2: the second column of the original dataframe...
-# @c1: the first criteria to search in the lookup table
-# @c2: the second criteria...
-compareReturn <- function(x1, x2, c1, c2, r){
-	return(r[(c1 %in% x1) & (c2 %in% x2)])
+# @hashTable all relevant categories are a paste0, this is here for the key
+# @value what to return from the hashtable
+compareReturn <- function(hashTable, key){
+	return(map_dbl(key, function(x){
+		    hashTable$value[hashTable$key %in% x]
+			   }))
 }
 
 # binsMs

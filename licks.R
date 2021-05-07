@@ -44,29 +44,15 @@ lookUpTable <- read_delim(lookUptablePath, col_names = TRUE, delim = ":")
 tibbleListRaw <- purrr::keep(tibbleListRaw, ~ nrow(.x) > 0)
 tibbleListRaw <- purrr::keep(tibbleListRaw, ~ all(.$fileName %in% lookUpTable$fileName))
 tibbleListRaw <- map(tibbleListRaw, ~ drop_na(.))
+# build the hashtable
+hashTable <- tibble(key = paste0(lookUpTable$fileName, lookUpTable$arduino),
+value = lookUpTable$animalCode)
 # get animal names corresponding to each arduinoNumber
 # WARNING!: code 999 means that no corresponding value was found in the lookUpTable
 tibbleListRaw <- map(tibbleListRaw, function(x) {
-        r <- c()
-        for (i in 1:dim(x)[1]) {
-                if (length(compareReturn(
-                        x$fileName[i], as.integer(as.character(x$arduinoNumber[i])),
-                        lookUpTable$fileName, lookUpTable$arduino,
-                        lookUpTable$animalCode
-                )) == 0) {
-                        r[i] <- 999
-                }
-                else {
-                        r[i] <- compareReturn(
-                                x$fileName[i], as.integer(as.character(x$arduinoNumber[i])),
-                                lookUpTable$fileName, lookUpTable$arduino,
-                                lookUpTable$animalCode
-                        )
-                }
-        }
-        x %>% mutate(
-                animalCode = r
-        )
+			     key <- paste0(x$fileName, x$arduinoNumber)
+			     x %>%
+				     mutate(animalCode = compareReturn(hashTable, key))
 })
 
 ##################################################################
@@ -121,6 +107,18 @@ tibbleList <- tibbleList %>%
 ##################################################################
 
 plotData <- bind_rows(tibbleList)
+plotData%>%
+	filter(ILI < 1000) %>%
+	ggplot(aes(ILI, ..scaled..)) +
+	geom_density() +
+	facet_wrap(~clusterMS)
+
+plotData <- bind_rows(tibbleList)
+plotData%>%
+	filter(ILI < 250, ms < 1800000) %>%
+	ggplot(aes(ms, ILI)) +
+	geom_line(aes(y = rollapplyr(ILI, 1000, sd, fill = NA)))
+
 plotData %>%
         ggplot(aes(ms, eventsCum)) +
         geom_point() +
