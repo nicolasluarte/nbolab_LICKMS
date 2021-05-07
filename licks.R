@@ -108,6 +108,12 @@ tibbleList <- tibbleList %>%
 
 plotData <- bind_rows(tibbleList)
 plotData%>%
+	filter(ILI < 1000, msFromEvent < 60000) %>%
+	ggplot(aes(msFromEvent, ILI)) +
+	geom_point()
+
+plotData <- bind_rows(tibbleList)
+plotData%>%
 	filter(ILI < 1000) %>%
 	ggplot(aes(ILI, ..scaled..)) +
 	geom_density() +
