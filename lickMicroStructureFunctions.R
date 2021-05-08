@@ -204,4 +204,3 @@ latencyToFirstLick <- function(){
   # to any spout
   
 }
-

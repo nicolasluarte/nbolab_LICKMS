@@ -3,6 +3,8 @@
 ##################################################################
 
 library(ggplot2)
+library(ggsci)
+library(glue)
 library(dplyr)
 library(tidyverse)
 library(zoo)
@@ -207,5 +209,34 @@ plotData %>%
 
 ##################################################################
 ##                          Statistics                          ##
-################################################################## s
+##################################################################
+
+# mean, sd, coefficient of variation
+
+# cutoff ILI larger than 1000ms and smaller than 60ms
+tibbleList <- tibbleList %>%
+	map_dfr(function(x) x %>%
+		filter(ILI < 1000, ILI > 60) %>%
+		group_by(animalCode) %>%
+		mutate(meanILI = mean(ILI),
+			sdILI = sd(ILI),
+			coeffVariationILI = meanILI/sdILI)
+		)
+
+# histograms
+nestTibble <- tibbleList %>%
+	filter(ILI < 1000, ILI > 60, eventsCum > 30) %>%
+	group_by(animalCode) %>%
+	nest() %>%
+	mutate(plotDensity = map2(data, animalCode, ~ ggplot(data = .x,
+							     aes(ILI, ..scaled..)) +
+						ggtitle(glue("Mice: {.y}")) +
+						geom_density() +
+						theme_bw()),
+		density = map(data, ~ density(.$ILI)),
+		densityMode = map(density, function(x) x$x[which.max(x$y)]))
+nestTibble$plotDensity[[1]]
+
+
+acf(nestTibble$data[[3]]$ILI, plot = TRUE, lag.max = 1000)
 
