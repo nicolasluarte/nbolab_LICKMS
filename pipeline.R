@@ -20,43 +20,115 @@ source("lickMicroStructureFunctions.R")
 ##                    LOAD FILES INTO DATAFRAME LIST                    ##
 ##########################################################################
 
-path <- "/home/nicoluarte/phd_thesis/experimental_data/Resultados/FR Abril 2021"
+path <- "~/nbolab_LICKMS/testFolder"
 # load all text files into memory
 # ! make sure only relevant .txt files are present
 files <- list.files(path, pattern = "*.csv")
 # all text files are read as tibbles
 tibbleListRaw <- files %>%
-        map(~ read_csv(file.path(path, .)))
-# add a column that indicates the filename
-numbers <- seq(from = 1, to = length(tibbleListRaw), by = 1)
-tibbleListRaw <- map2(tibbleListRaw, numbers, function(.x, .y) {
-        .x %>% mutate(
-                fileName = rep(files[.y], dim(.x)[1])
-        )
+        map(~ readLines(file.path(path, .)))
+
+tibbleListRaw <- map(tibbleListRaw, function(x){
+  unParsed <- x
+  unParsed <- gsub(pattern = '(-[0-9]*)( -)', replace = '\\1\\20,', x = unParsed)
+  unParsed <- gsub(pattern = "-", replace = ",", x = unParsed)
+  dataRaw <- as_tibble(do.call(rbind, strsplit(unParsed, split=",")))
 })
-# load look up table
-# change this path to the correct one
-lookUptablePath <- "/home/nicoluarte/phd_thesis/experimental_data/uncertainty_fr/lookUpTable.csv"
-lookUpTable <- read_delim(lookUptablePath, col_names = TRUE, delim = ":")
+
 
 ##################################################################
 ##                    Initial pre-processing                    ##
 ##################################################################
 
-# remove empty tibbles
-tibbleListRaw <- purrr::keep(tibbleListRaw, ~ nrow(.x) >= 1000)
-tibbleListRaw <- purrr::keep(tibbleListRaw, ~ all(.$fileName %in% lookUpTable$fileName))
-tibbleListRaw <- map(tibbleListRaw, ~ drop_na(.))
-# build the hashtable
-hashTable <- tibble(key = paste0(lookUpTable$fileName, lookUpTable$arduino),
-value = lookUpTable$animalCode)
-# get animal names corresponding to each arduinoNumber
-# WARNING!: code 999 means that no corresponding value was found in the lookUpTable
-tibbleListRaw <- map(tibbleListRaw, function(x) {
-			     key <- paste0(x$fileName, x$arduinoNumber)
-			     x %>%
-				     mutate(animalCode = compareReturn(hashTable, key))
+tibbleListRaw <- map(tibbleListRaw, function(x){
+colnames(x) <- c("date", "pc_time",
+	     "seconds_from_start", "ms_from_start",
+	     "number_of_arduino", "spout",
+	     "licks_cum", "events_cum")
+return(x)
+}
+)
+# data types
+tibbleListRaw <- map(tibbleListRaw, function(x){
+			     x %>% mutate(date = lubridate::ymd(date),
+			     pc_time = as.numeric(pc_time),
+			     seconds_from_start = as.numeric(seconds_from_start),
+			     ms_from_start = as.numeric(ms_from_start),
+			     number_of_arduino = as.numeric(number_of_arduino),
+			     spout = as.numeric(spout),
+			     licks_cum = as.numeric(licks_cum),
+			     events_cum = as.numeric(events_cum),
+			     ms = (seconds_from_start * 1000) + ms_from_start)
 })
+tibbleListRaw
+
+# add features
+tibbleListRaw <- tibbleListRaw %>%
+	map(function(x)
+	    {
+		    x %>%
+		    group_by(number_of_arduino, spout) %>%
+		    mutate(
+			   isEvent = getIsEvent(events_cum),
+			   isLick = getIsLick(licks_cum)
+			   )
+	    })
+tibbleListRaw %>% View()
+
+# first view event x time
+event_time <- tibbleListRaw %>%
+	map(
+	    function(x)
+	    {
+		    x %>%
+			    filter(isEvent == 1)
+	    }
+	    )
+
+# second view licks x time
+licks_time <- tibbleListRaw %>%
+	map(
+	    function(x)
+	    {
+		    x %>%
+			    filter(isLick ==1)
+	    }
+	    )
+
+# third view relative time from event
+relativeTimeCol <- function(eventIndex, df){
+	v <- eventIndex
+	down <- df[v[1]:dim(df)[1],]$ms - df[v[1],]$ms
+	up <- df[1:v[1],]$ms - df[v[1],]$ms
+	up <- up[-length(up)]
+	r <- tibble(c(up, down))
+	colnames(r) <- c(paste0("relative_time"))
+	return(r)
+}
+relative_time <- tibbleListRaw %>%
+	map(function(x){
+		    v <- which(x$isEvent == 1)
+		    v %>% map_dfc(~relativeTimeCol(., x))
+	    })
+
+relativeTimeRow <- function(eventIndex, df){
+	v <- eventIndex
+	down <- df[v[1]:dim(df)[1],]$ms - df[v[1],]$ms
+	up <- df[1:v[1],]$ms - df[v[1],]$ms
+	up <- up[-length(up)]
+	r <- tibble(c(up, down))
+	colnames(r) <- c(paste0("relative_time"))
+	d <- bind_cols(df, r)
+	return(d)
+}
+relative_time1 <- tibbleListRaw %>%
+	map(function(x){
+		    v <- which(x$isEvent == 1)
+		    v %>% map_dfr(~relativeTimeRow(., x))
+	    })
+
+
+
 
 ##################################################################
 ##                      Feature extraction                      ##
